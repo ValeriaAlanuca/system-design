@@ -1,3 +1,4 @@
+
 """Ejercicio 3: una version 2 de la API de reservas que conviva con la
 version 1 sin romper a sus clientes, y un DELETE idempotente.
 
@@ -53,7 +54,14 @@ def representar_v2(reserva):
     # TODO: devuelve la reserva como la ve un cliente de la version 2:
     # {"id", "estudiante", "cancha", "fecha", "inicio", "fin"}, con inicio
     # y fin como texto (una reserva de las 9 es "09:00" a "10:00").
-    raise NotImplementedError
+    return {
+        "id": reserva["id"],
+        "estudiante": reserva["estudiante"],
+        "cancha": reserva["cancha"],
+        "fecha": reserva["fecha"],
+        "inicio": texto_de_hora(reserva["hora"]),
+        "fin": texto_de_hora(reserva["hora"] + 1),
+    }
 
 
 class ApiVersionada:
@@ -105,15 +113,49 @@ class ApiVersionada:
         #   {"error": "inicio invalido"};
         # - cancha desconocida, 404; hora ocupada, 409 (mismos cuerpos que v1);
         # - si no, crea la reserva y responde 201 con representar_v2.
-        raise NotImplementedError
+        for campo in CAMPOS_V2:
+            if campo not in cuerpo:
+                return Respuesta(400, {"error": "faltan campos"})
+
+        if cuerpo["duracion_min"] != 60:
+            return Respuesta(400, {"error": "duracion no permitida"})
+
+        if not isinstance(cuerpo["inicio"], str):
+            return Respuesta(400, {"error": "inicio invalido"})
+
+        hora = hora_de_texto(cuerpo["inicio"])
+        if hora is None:
+            return Respuesta(400, {"error": "inicio invalido"})
+
+        if cuerpo["cancha"] not in CANCHAS:
+            return Respuesta(404, {"error": "cancha desconocida"})
+
+        if self.repositorio.ocupada(cuerpo["cancha"], cuerpo["fecha"], hora):
+            return Respuesta(409, {"error": "hora ocupada"})
+
+        reserva = self.repositorio.crear(
+            cuerpo["estudiante"],
+            cuerpo["cancha"],
+            cuerpo["fecha"],
+            hora
+        )
+        return Respuesta(201, representar_v2(reserva))
 
     def obtener_reserva_v2(self, id_reserva):
         # TODO: 404 con {"error": "reserva desconocida"} si no existe; si
         # existe, 200 con representar_v2.
-        raise NotImplementedError
+        reserva = self.repositorio.buscar(id_reserva)
+        if reserva is None:
+            return Respuesta(404, {"error": "reserva desconocida"})
+        return Respuesta(200, representar_v2(reserva))
 
     def borrar_reserva(self, id_reserva):
         # TODO: lo usan las dos versiones. Si la reserva existe, borrala y
         # responde 204 sin cuerpo (Respuesta(204)). Si no existe, responde
         # 404 con {"error": "reserva desconocida"}.
-        raise NotImplementedError
+        reserva = self.repositorio.buscar(id_reserva)
+        if reserva is None:
+            return Respuesta(404, {"error": "reserva desconocida"})
+
+        self.repositorio.borrar(id_reserva)
+        return Respuesta(204)

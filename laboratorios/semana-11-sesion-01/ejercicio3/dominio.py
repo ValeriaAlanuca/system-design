@@ -1,3 +1,4 @@
+
 """El nucleo de la cancelacion de reservas. No importa nada de afuera."""
 
 MINIMO_HORAS_DE_AVISO = 2
@@ -18,4 +19,10 @@ def clasificar_cancelacion(fecha_reserva, hora_reserva, fecha_actual, hora_actua
     "a tiempo". Las fechas son textos "AAAA-MM-DD": en ese formato,
     comparar dos fechas con < las compara en el tiempo."""
     # TODO 1: las mismas condiciones que cancelaciones_acopladas.py.
+    if fecha_reserva < fecha_actual or (fecha_reserva == fecha_actual and hora_reserva <= hora_actual):
+        return "vencida"
+
+    if fecha_reserva == fecha_actual and hora_reserva - hora_actual < MINIMO_HORAS_DE_AVISO:
+        return "tardia"
+
     return "a tiempo"

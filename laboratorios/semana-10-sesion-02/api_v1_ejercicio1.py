@@ -1,3 +1,4 @@
+
 """Ejercicio 1: el contrato REST de las reservas de ReservaU, y lo que
 le pasa a un POST cuando la red pierde la respuesta.
 
@@ -38,7 +39,9 @@ class ApiReservaU:
         # TODO 1: si la cancha no esta en CANCHAS, responde 404 con
         # {"error": "cancha desconocida"}. Si esta, responde 200 con
         # {"cancha": ..., "fecha": ..., "libres": [...]}.
-        raise NotImplementedError
+        if cancha not in CANCHAS:
+            return Respuesta(404, {'error': 'cancha desconocida'})
+        return Respuesta(200, {'cancha': cancha, 'fecha': fecha, 'libres': self.repositorio.libres(cancha, fecha)})
 
     def crear_reserva(self, cuerpo):
         # TODO 2: en este orden,
@@ -48,7 +51,15 @@ class ApiReservaU:
         # - si la hora ya esta ocupada, 409 con {"error": "hora ocupada"};
         # - si no, crea la reserva en el repositorio y responde 201 con la
         #   reserva creada (id, estudiante, cancha, fecha, hora).
-        raise NotImplementedError
+        for campo in CAMPOS_DE_RESERVA:
+            if campo not in cuerpo:
+                return Respuesta(400, {'error': 'faltan campos'})
+        if cuerpo['cancha'] not in CANCHAS:
+            return Respuesta(404, {'error': 'cancha desconocida'})
+        if self.repositorio.ocupada(cuerpo['cancha'], cuerpo['fecha'], cuerpo['hora']):
+            return Respuesta(409, {'error': 'hora ocupada'})
+        reserva = self.repositorio.crear(cuerpo['estudiante'], cuerpo['cancha'], cuerpo['fecha'], cuerpo['hora'])
+        return Respuesta(201, reserva)
 
     def crear_pago(self, cuerpo):
         reserva = self.repositorio.buscar(cuerpo["reserva_id"])

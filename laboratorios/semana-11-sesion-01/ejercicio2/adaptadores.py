@@ -1,3 +1,4 @@
+
 """Los adaptadores de ReservaU, tal como quedaron en el Ejercicio 1, mas
 dos nuevos:
 
@@ -105,6 +106,9 @@ class NotificadorEnMemoria(Notificador):
     def __init__(self):
         self.enviados = []
 
+    def enviar(self, estudiante, mensaje):
+        self.enviados.append((estudiante, mensaje))
+
 
 class AdaptadorDeMensajeria:
     """Atiende mensajes de un chat. El estudiante escribe, por ejemplo,
@@ -120,4 +124,26 @@ class AdaptadorDeMensajeria:
         # Si no, llama al caso de uso y responde
         # "Listo: reserva r-1, cancha-1, 2026-11-10 a las 18:00" o
         # "No se pudo reservar: hora ocupada" (con el motivo que sea).
-        raise NotImplementedError
+        partes = texto.split()
+
+        if len(partes) != 4 or partes[0] != "reservar" or not partes[3].isdigit():
+            return "No entendi. Escribe: reservar <cancha> <fecha> <hora>"
+
+        cancha = partes[1]
+        fecha = partes[2]
+        hora = int(partes[3])
+
+        resultado = self.reservar_cancha.ejecutar(
+            estudiante, cancha, fecha, hora
+        )
+
+        if resultado["estado"] == "rechazada":
+            return "No se pudo reservar: " + resultado["motivo"]
+
+        reserva = resultado["reserva"]
+
+        return (
+            "Listo: reserva " + reserva.id + ", "
+            + reserva.cancha + ", " + reserva.fecha
+            + " a las " + texto_de_hora(reserva.hora)
+        )

@@ -1,3 +1,4 @@
+
 """Ejercicio 2: el pago de la garantia, idempotente con una cabecera
 Idempotency-Key.
 
@@ -36,4 +37,34 @@ class ApiDePagos:
         #   self.pasarela.cobrar(estudiante, monto), arma la respuesta 201
         #   con {"id": id del cobro, "reserva_id": ..., "monto": ...},
         #   guardala junto con el cuerpo de la solicitud, y devuelvela.
-        raise NotImplementedError
+        clave = solicitud.cabeceras.get("Idempotency-Key")
+
+        if not clave:
+            return Respuesta(400, {"error": "falta Idempotency-Key"})
+
+        cuerpo = solicitud.cuerpo
+
+        if clave in self.respuestas_guardadas:
+            cuerpo_guardado, respuesta_guardada = self.respuestas_guardadas[clave]
+
+            if cuerpo == cuerpo_guardado:
+                return respuesta_guardada
+
+            return Respuesta(422, {"error": "clave usada con otro cuerpo"})
+
+        reserva = self.repositorio.buscar(cuerpo["reserva_id"])
+
+        if reserva is None:
+            return Respuesta(404, {"error": "reserva desconocida"})
+
+        cobro = self.pasarela.cobrar(cuerpo["estudiante"], cuerpo["monto"])
+
+        respuesta = Respuesta(201, {
+            "id": cobro["id"],
+            "reserva_id": cuerpo["reserva_id"],
+            "monto": cuerpo["monto"]
+        })
+
+        self.respuestas_guardadas[clave] = (cuerpo.copy(), respuesta)
+
+        return respuesta

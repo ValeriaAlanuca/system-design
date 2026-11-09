@@ -1,3 +1,4 @@
+
 """Los adaptadores de la cancelacion. RelojDelSistema y NotificadorPorCorreo
 ya estan completos; los demas son tuyos."""
 
@@ -15,17 +16,87 @@ class RepositorioSqlite(RepositorioDeReservas):
     # El id que devuelve y recibe es "r-" seguido del numero de SQLite.
     def __init__(self, ruta_base_de_datos):
         self.conexion = sqlite3.connect(ruta_base_de_datos)
+        self.conexion.execute(
+            "CREATE TABLE IF NOT EXISTS reservas ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "estudiante TEXT, cancha TEXT, fecha TEXT, hora INTEGER)"
+        )
+        self.conexion.execute("CREATE TABLE IF NOT EXISTS penalizaciones (estudiante TEXT)")
+
+    def agregar(self, estudiante, cancha, fecha, hora):
+        cursor = self.conexion.execute(
+            "INSERT INTO reservas (estudiante, cancha, fecha, hora) VALUES (?, ?, ?, ?)",
+            (estudiante, cancha, fecha, hora),
+        )
+        self.conexion.commit()
+        return Reserva("r-" + str(cursor.lastrowid), estudiante, cancha, fecha, hora)
+
+    def buscar(self, id_reserva):
+        numero = int(id_reserva[2:])
+        fila = self.conexion.execute(
+            "SELECT id, estudiante, cancha, fecha, hora FROM reservas WHERE id = ?",
+            (numero,),
+        ).fetchone()
+        if fila is None:
+            return None
+        return Reserva("r-" + str(fila[0]), fila[1], fila[2], fila[3], fila[4])
+
+    def borrar(self, id_reserva):
+        numero = int(id_reserva[2:])
+        self.conexion.execute(
+            "DELETE FROM reservas WHERE id = ?", (numero,)
+        )
+        self.conexion.commit()
+
+    def registrar_penalizacion(self, estudiante):
+        self.conexion.execute(
+            "INSERT INTO penalizaciones (estudiante) VALUES (?)", (estudiante,)
+        )
+        self.conexion.commit()
+
+    def penalizaciones_de(self, estudiante):
+        fila = self.conexion.execute(
+            "SELECT COUNT(*) FROM penalizaciones WHERE estudiante = ?", (estudiante,)
+        ).fetchone()
+        return fila[0]
 
 
 class RepositorioEnMemoria(RepositorioDeReservas):
     # TODO 4: el mismo puerto sobre diccionarios, con ids "r-1", "r-2", ...
-    pass
+    def __init__(self):
+        self.reservas = {}
+        self.penalizaciones = {}
+        self.siguiente_numero = 1
+
+    def agregar(self, estudiante, cancha, fecha, hora):
+        id_reserva = "r-" + str(self.siguiente_numero)
+        reserva = Reserva(id_reserva, estudiante, cancha, fecha, hora)
+        self.reservas[id_reserva] = reserva
+        self.siguiente_numero += 1
+        return reserva
+
+    def buscar(self, id_reserva):
+        return self.reservas.get(id_reserva)
+
+    def borrar(self, id_reserva):
+        self.reservas.pop(id_reserva, None)
+
+    def registrar_penalizacion(self, estudiante):
+        self.penalizaciones[estudiante] = self.penalizaciones.get(estudiante, 0) + 1
+
+    def penalizaciones_de(self, estudiante):
+        return self.penalizaciones.get(estudiante, 0)
 
 
 class RelojFijo(Reloj):
     # TODO 5: un reloj que siempre devuelve la fecha y la hora que recibio
     # al construirse: RelojFijo("2026-11-10", 16).
-    pass
+    def __init__(self, fecha, hora):
+        self.fecha = fecha
+        self.hora = hora
+
+    def ahora(self):
+        return (self.fecha, self.hora)
 
 
 class RelojDelSistema(Reloj):
@@ -36,7 +107,11 @@ class RelojDelSistema(Reloj):
 class NotificadorEnMemoria(Notificador):
     # TODO 6: guarda cada notificacion en self.enviados como una tupla
     # (estudiante, mensaje).
-    pass
+    def __init__(self):
+        self.enviados = []
+
+    def notificar(self, estudiante, mensaje):
+        self.enviados.append((estudiante, mensaje))
 
 
 class NotificadorPorCorreo(Notificador):

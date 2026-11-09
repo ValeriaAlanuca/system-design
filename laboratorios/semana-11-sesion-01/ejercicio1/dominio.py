@@ -1,3 +1,4 @@
+
 """El nucleo de ReservaU: que es una reserva y que reglas la gobiernan.
 
 Este archivo no importa nada de afuera: ni sqlite3, ni http_simulado, ni
@@ -37,4 +38,16 @@ def motivo_de_rechazo(cancha, hora, hora_ocupada, reservas_del_dia):
     # TODO 1: las cuatro reglas de reservas_acopladas.py, en el mismo
     # orden, sin SQL ni codigos HTTP: "cancha desconocida",
     # "fuera del horario", "hora ocupada", "limite diario alcanzado".
+    if cancha not in CANCHAS:
+        return "cancha desconocida"
+
+    if hora not in HORAS_DEL_DIA:
+        return "fuera del horario"
+
+    if hora_ocupada:
+        return "hora ocupada"
+
+    if reservas_del_dia >= MAXIMO_RESERVAS_POR_DIA:
+        return "limite diario alcanzado"
+
     return None

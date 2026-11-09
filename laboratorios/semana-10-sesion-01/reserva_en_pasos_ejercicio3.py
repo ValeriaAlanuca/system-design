@@ -1,3 +1,4 @@
+
 """Ejercicio 3: la reserva en tres pasos (elegir cancha, elegir hora,
 confirmar), detras de un balanceador con varios servidores.
 
@@ -57,16 +58,37 @@ class ServidorSinEstado:
     def iniciar(self, estudiante, cancha):
         # TODO: guarda el borrador {"cancha": ..., "hora": None} en
         # self.almacen, con la clave "borrador:" + estudiante. Devuelve "ok".
-        raise NotImplementedError
+        clave = "borrador:" + estudiante
+        borrador = {"cancha": cancha, "hora": None}
+        self.almacen.guardar(clave, borrador)
+        return "ok"
 
     def elegir_hora(self, estudiante, hora):
         # TODO: mismo comportamiento que ServidorConEstado.elegir_hora, con
         # el borrador leido del almacen. Recuerda que el almacen entrega una
         # copia: si cambias la hora, vuelve a guardar el borrador.
-        raise NotImplementedError
+        clave = "borrador:" + estudiante
+        borrador = self.almacen.leer(clave)
+        if borrador is None:
+            return "sin borrador"
+        if not self.repositorio.esta_libre(borrador["cancha"], hora):
+            return "ocupada"
+        borrador["hora"] = hora
+        self.almacen.guardar(clave, borrador)
+        return "ok"
 
     def confirmar(self, estudiante):
         # TODO: mismo comportamiento que ServidorConEstado.confirmar, con el
         # borrador leido del almacen. Al confirmar, borra el borrador del
         # almacen.
-        raise NotImplementedError
+        clave = "borrador:" + estudiante
+        borrador = self.almacen.leer(clave)
+        if borrador is None or borrador["hora"] is None:
+            return "sin borrador"
+        if not self.repositorio.esta_libre(borrador["cancha"], borrador["hora"]):
+            return "ocupada"
+        self.repositorio.registrar(estudiante, borrador["cancha"], borrador["hora"])
+        self.cola.publicar({"estudiante": estudiante, "cancha": borrador["cancha"], "hora": borrador["hora"]})
+        self.almacen.borrar(clave)
+        return "confirmada"
+
