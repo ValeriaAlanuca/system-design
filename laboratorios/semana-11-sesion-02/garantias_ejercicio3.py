@@ -1,3 +1,4 @@
+
 """Ejercicio 3: la garantia de una reserva, en el contexto de Pagos.
 
 Al reservar, ReservaU retiene una garantia en la tarjeta del estudiante.
@@ -40,3 +41,78 @@ from dataclasses import dataclass
 
 
 # TODO: escribe Dinero y GarantiaDeReserva.
+
+@dataclass(frozen=True)
+class Dinero:
+    centavos: int
+    moneda: str
+
+    def __post_init__(self):
+        if self.centavos < 0:
+            raise ValueError("monto negativo")
+
+        if len(self.moneda) != 3 or not self.moneda.isalpha():
+            raise ValueError("moneda invalida")
+
+    def sumar(self, otro):
+        if self.moneda != otro.moneda:
+            raise ValueError("monedas distintas")
+
+        return Dinero(self.centavos + otro.centavos, self.moneda)
+
+    def restar(self, otro):
+        if self.moneda != otro.moneda:
+            raise ValueError("monedas distintas")
+
+        return Dinero(self.centavos - otro.centavos, self.moneda)
+
+    def es_mayor_que(self, otro):
+        if self.moneda != otro.moneda:
+            raise ValueError("monedas distintas")
+
+        return self.centavos > otro.centavos
+
+    def texto(self):
+        return f"{self.moneda} {self.centavos / 100:.2f}"
+
+
+@dataclass(eq=False)
+class GarantiaDeReserva:
+    id_garantia: str
+    id_reserva: str
+    titular: str
+    monto: Dinero
+
+    def __post_init__(self):
+        self.estado = "retenida"
+        self.cobrado = Dinero(0, self.monto.moneda)
+
+    def devolver(self):
+        if self.estado != "retenida":
+            raise ValueError("la garantia ya fue resuelta")
+
+        self.estado = "devuelta"
+        return self.monto
+
+    def cobrar(self, monto_cobrado):
+        if self.estado != "retenida":
+            raise ValueError("la garantia ya fue resuelta")
+
+        if monto_cobrado.es_mayor_que(self.monto):
+            raise ValueError("el cobro supera la garantia")
+
+        reintegro = self.monto.restar(monto_cobrado)
+
+        self.cobrado = monto_cobrado
+        self.estado = "cobrada"
+
+        return reintegro
+
+    def __eq__(self, otra):
+        if not isinstance(otra, GarantiaDeReserva):
+            return NotImplemented
+
+        return self.id_garantia == otra.id_garantia
+
+    def __hash__(self):
+        return hash(self.id_garantia)
