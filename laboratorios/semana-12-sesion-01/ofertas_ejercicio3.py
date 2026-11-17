@@ -1,3 +1,4 @@
+
 """Ejercicio 3: la lista de espera con plazo para aceptar.
 
 Avisar a beto no alcanza: si beto no contesta, la franja queda libre y
@@ -51,3 +52,113 @@ clase completa. Corre las pruebas con:
 
 from eventos_ejercicio2 import ObservadorDeReservas
 from reservas import MAXIMO_HORAS_POR_ESTUDIANTE, FranjaHoraria
+
+
+class ListaDeEsperaConPlazo(ObservadorDeReservas):
+    def __init__(self, calendario, notificador, reloj, minutos_para_aceptar=15):
+        self.calendario = calendario
+        self.notificador = notificador
+        self.reloj = reloj
+        self.minutos_para_aceptar = minutos_para_aceptar
+
+        self.esperando = {}
+        self.ofertas = {}
+
+        calendario.suscribir("liberada", self)
+        calendario.suscribir("ocupada", self)
+
+    def _ahora(self):
+        for nombre in ("ahora", "minuto_actual", "minutos", "minuto"):
+            valor = getattr(self.reloj, nombre, None)
+            if valor is not None:
+                if callable(valor):
+                    return valor()
+                return valor
+        raise AttributeError("No se puede obtener el minuto actual del reloj")
+
+    def _texto_franja(self, franja):
+        return f"{self.calendario.cancha} {franja.fecha} {franja.inicio}-{franja.fin}"
+
+    def anotar(self, estudiante, inicio, fin):
+        franja = FranjaHoraria(self.calendario.fecha, inicio, fin)
+
+        fila = self.esperando.get(franja, [])
+        oferta = self.ofertas.get(franja)
+
+        if estudiante in fila or (oferta is not None and oferta[0] == estudiante):
+            raise ValueError("ya esta en la lista")
+
+        if self.calendario.esta_libre(inicio, fin):
+            raise ValueError("la franja esta libre")
+
+        if franja not in self.esperando:
+            self.esperando[franja] = []
+
+        self.esperando[franja].append(estudiante)
+
+    def _ofrecer_siguiente(self, franja):
+        if franja in self.ofertas:
+            return
+
+        fila = self.esperando.get(franja, [])
+
+        while fila:
+            estudiante = fila.pop(0)
+            texto = self._texto_franja(franja)
+
+            horas = self.calendario.horas_de(estudiante)
+            duracion = franja.fin - franja.inicio
+
+            if horas + duracion > MAXIMO_HORAS_POR_ESTUDIANTE:
+                mensaje = f"No puedes tomar {texto}: pasarias el limite de horas"
+                self.notificador.enviar(estudiante, mensaje)
+                continue
+
+            vencimiento = self._ahora() + self.minutos_para_aceptar
+            self.ofertas[franja] = (estudiante, vencimiento)
+
+            mensaje = f"Tienes {self.minutos_para_aceptar} minutos para aceptar {texto}"
+            self.notificador.enviar(estudiante, mensaje)
+            return
+
+    def aceptar(self, estudiante, inicio, fin, id_reserva):
+        franja = FranjaHoraria(self.calendario.fecha, inicio, fin)
+        oferta = self.ofertas.get(franja)
+
+        if oferta is None or oferta[0] != estudiante:
+            raise ValueError("no tienes una oferta")
+
+        if self._ahora() >= oferta[1]:
+            raise ValueError("oferta vencida")
+
+        del self.ofertas[franja]
+
+        return self.calendario.reservar(id_reserva, estudiante, inicio, fin)
+
+    def revisar_vencidas(self):
+        for franja, (estudiante, vencimiento) in list(self.ofertas.items()):
+            if self._ahora() >= vencimiento:
+                del self.ofertas[franja]
+
+                mensaje = f"Vencio tu oferta de {self._texto_franja(franja)}"
+                self.notificador.enviar(estudiante, mensaje)
+
+                self._ofrecer_siguiente(franja)
+
+    def al_liberarse(self, cancha, franja):
+        if cancha == self.calendario.cancha:
+            self._ofrecer_siguiente(franja)
+
+    def al_ocuparse(self, cancha, franja):
+        if cancha != self.calendario.cancha:
+            return
+
+        for pendiente, (estudiante, vencimiento) in list(self.ofertas.items()):
+            if (pendiente.fecha == franja.fecha
+                    and pendiente.inicio < franja.fin
+                    and franja.inicio < pendiente.fin):
+
+                del self.ofertas[pendiente]
+
+                mensaje = f"La franja {self._texto_franja(pendiente)} ya no esta disponible"
+                self.notificador.enviar(estudiante, mensaje)

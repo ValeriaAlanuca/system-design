@@ -1,3 +1,4 @@
+
 """Ejercicio 2: dos eventos y tres observadores.
 
 El calendario de una cancha ahora avisa dos cosas distintas:
@@ -45,20 +46,57 @@ class CalendarioConEventos(CalendarioDeCancha):
     def __init__(self, cancha, fecha):
         super().__init__(cancha, fecha)
         self._observadores = {"ocupada": [], "liberada": []}
+        self._franjas = {}
 
     def suscribir(self, evento, observador):
         # TODO 1: ValueError("evento desconocido") si el evento no esta en
         # EVENTOS. Si el observador ya esta suscrito a ese evento, no lo
         # agregues otra vez. Escribe tambien desuscribir(evento,
         # observador), que lo quita si esta.
-        raise NotImplementedError
+        if evento not in EVENTOS:
+            raise ValueError("evento desconocido")
+
+        if observador not in self._observadores[evento]:
+            self._observadores[evento].append(observador)
+
+    def desuscribir(self, evento, observador):
+        if evento not in EVENTOS:
+            raise ValueError("evento desconocido")
+
+        if observador in self._observadores[evento]:
+            self._observadores[evento].remove(observador)
 
     # TODO 2: sobrescribe reservar: reserva como CalendarioDeCancha y,
     # despues, avisa al_ocuparse(cancha, franja) a los suscritos a
     # "ocupada". Una reserva rechazada no avisa a nadie.
 
+    def reservar(self, reserva_id, estudiante, inicio, fin):
+        estaba_libre = self.esta_libre(inicio, fin)
+        resultado = super().reservar(reserva_id, estudiante, inicio, fin)
+
+        if estaba_libre and not self.esta_libre(inicio, fin):
+            franja = FranjaHoraria(self.fecha, inicio, fin)
+            self._franjas[reserva_id] = franja
+
+            for observador in self._observadores["ocupada"]:
+                observador.al_ocuparse(self.cancha, franja)
+
+        return resultado
+
     # TODO 3: sobrescribe cancelar: lo mismo que en el Ejercicio 1, pero
     # solo a los suscritos a "liberada".
+
+    def cancelar(self, reserva_id):
+        franja = self._franjas.get(reserva_id)
+        resultado = super().cancelar(reserva_id)
+
+        if franja is not None:
+            del self._franjas[reserva_id]
+
+            for observador in self._observadores["liberada"]:
+                observador.al_liberarse(self.cancha, franja)
+
+        return resultado
 
 
 class CacheDeDisponibilidad(ObservadorDeReservas):
@@ -74,7 +112,29 @@ class CacheDeDisponibilidad(ObservadorDeReservas):
         # guarda y la devuelve. Escribe tambien al_ocuparse y al_liberarse:
         # las dos borran lo guardado para (cancha, franja.fecha), si hay
         # algo.
-        raise NotImplementedError
+        clave = (calendario.cancha, calendario.fecha)
+
+        if clave in self.horas_libres:
+            return self.horas_libres[clave]
+
+        horas = []
+
+        for h in range(HORA_DE_APERTURA, HORA_DE_CIERRE):
+            if calendario.esta_libre(h, h + 1):
+                horas.append(h)
+
+        self.calculos += 1
+        self.horas_libres[clave] = horas
+
+        return horas
+
+    def al_ocuparse(self, cancha, franja):
+        clave = (cancha, franja.fecha)
+        self.horas_libres.pop(clave, None)
+
+    def al_liberarse(self, cancha, franja):
+        clave = (cancha, franja.fecha)
+        self.horas_libres.pop(clave, None)
 
 
 class RegistroDeAuditoria(ObservadorDeReservas):
@@ -84,6 +144,14 @@ class RegistroDeAuditoria(ObservadorDeReservas):
     # TODO 5: al_ocuparse agrega "ocupada cancha-1 2026-11-10 18-19" a
     # self.lineas, y al_liberarse, "liberada cancha-1 2026-11-10 18-19",
     # con la cancha y la franja que reciben.
+
+    def al_ocuparse(self, cancha, franja):
+        texto = f"ocupada {cancha} {franja.fecha} {franja.inicio}-{franja.fin}"
+        self.lineas.append(texto)
+
+    def al_liberarse(self, cancha, franja):
+        texto = f"liberada {cancha} {franja.fecha} {franja.inicio}-{franja.fin}"
+        self.lineas.append(texto)
 
 
 if __name__ == "__main__":

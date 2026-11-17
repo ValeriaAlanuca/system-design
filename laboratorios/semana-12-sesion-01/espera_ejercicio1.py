@@ -1,3 +1,4 @@
+
 """Ejercicio 1: la lista de espera, primero consultando y despues con
 Observer.
 
@@ -55,10 +56,35 @@ class CalendarioObservable(CalendarioDeCancha):
     # lista vacia de observadores. Escribe suscribir(observador), que lo
     # agrega a esa lista.
 
+    def __init__(self, cancha, fecha):
+        super().__init__(cancha, fecha)
+        self.observadores = []
+        self._cancha = cancha
+        self._fecha = fecha
+        self._franjas = {}
+
+    def suscribir(self, observador):
+        self.observadores.append(observador)
+
     # TODO 2: sobrescribe cancelar. Guarda la franja de la reserva, cancela
     # como lo hace CalendarioDeCancha, y despues llama al_liberarse(cancha,
     # franja) de cada observador, en el orden en que se suscribieron.
-    pass
+
+    def reservar(self, reserva_id, estudiante, inicio, fin):
+        resultado = super().reservar(reserva_id, estudiante, inicio, fin)
+        self._franjas[reserva_id] = FranjaHoraria(self._fecha, inicio, fin)
+        return resultado
+
+    def cancelar(self, reserva_id):
+        franja = self._franjas.get(reserva_id)
+        resultado = super().cancelar(reserva_id)
+
+        if franja is not None:
+            del self._franjas[reserva_id]
+            for observador in self.observadores:
+                observador.al_liberarse(self._cancha, franja)
+
+        return resultado
 
 
 class ListaDeEspera(ObservadorDeCalendario):
@@ -73,7 +99,16 @@ class ListaDeEspera(ObservadorDeCalendario):
         # lista y le envia, con el notificador:
         #     "Se libero cancha-1 el 2026-11-10 de 18 a 19"
         # Si nadie la espera, no hace nada.
-        raise NotImplementedError
+        if franja not in self.esperando:
+            self.esperando[franja] = []
+
+        self.esperando[franja].append(estudiante)
+
+    def al_liberarse(self, cancha, franja):
+        if franja in self.esperando and self.esperando[franja]:
+            estudiante = self.esperando[franja].pop(0)
+            mensaje = f"Se libero {cancha} el {franja.fecha} de {franja.inicio} a {franja.fin}"
+            self.notificador.enviar(estudiante, mensaje)
 
 
 if __name__ == "__main__":
