@@ -1,3 +1,4 @@
+
 """Ejercicio 2: espacios y equipos en el mismo arbol.
 
 La expansion de ReservaU incluye el prestamo de equipos: proyectores en
@@ -69,6 +70,26 @@ class Reservable(Recurso):
     # TODO 4 (hoja): rutas devuelve [ruta + self.nombre] en los mismos
     # casos en que buscar devuelve [self.nombre].
 
+    def buscar(self, tipo, inicio, fin):
+        if self.tipo == tipo and self.calendario.esta_libre(inicio, fin):
+            return [self.nombre]
+        return []
+
+    def contar(self, tipo):
+        if self.tipo == tipo:
+            return 1
+        return 0
+
+    def encontrar(self, nombre):
+        if self.nombre == nombre:
+            return self
+        return None
+
+    def rutas(self, tipo, inicio, fin, ruta):
+        if self.tipo == tipo and self.calendario.esta_libre(inicio, fin):
+            return [ruta + self.nombre]
+        return []
+
 
 class Grupo(Recurso):
     def __init__(self, nombre):
@@ -86,6 +107,33 @@ class Grupo(Recurso):
 
     # TODO 4 (compuesto): rutas junta lo que devuelve cada hijo, pasandole
     # ruta + self.nombre + " / ".
+
+    def buscar(self, tipo, inicio, fin):
+        encontrados = []
+        for hijo in self.hijos:
+            encontrados += hijo.buscar(tipo, inicio, fin)
+        return encontrados
+
+    def contar(self, tipo):
+        total = 0
+        for hijo in self.hijos:
+            total += hijo.contar(tipo)
+        return total
+
+    def encontrar(self, nombre):
+        for hijo in self.hijos:
+            encontrado = hijo.encontrar(nombre)
+            if encontrado is not None:
+                return encontrado
+        return None
+
+    def rutas(self, tipo, inicio, fin, ruta):
+        encontrados = []
+        for hijo in self.hijos:
+            encontrados += hijo.rutas(
+                tipo, inicio, fin, ruta + self.nombre + " / "
+            )
+        return encontrados
 
 
 def reservar_en(raiz, nombre, id_reserva, estudiante, inicio, fin):
