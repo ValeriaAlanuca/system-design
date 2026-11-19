@@ -1,3 +1,4 @@
+
 """Ejercicio 1: el feed de actividad, de dos formas.
 
 Cada estudiante sigue equipos y espacios. Su feed muestra las publicaciones
@@ -39,12 +40,14 @@ class FeedEnEscritura:
     def publicar(self, publicacion):
         # TODO 1: agrega la publicacion a la lista "feed:<estudiante>" de cada
         # seguidor del autor, con self.almacen.agregar.
-        raise NotImplementedError
+        for estudiante in self.seguidores.get(publicacion.autor, []):
+            self.almacen.agregar(f"feed:{estudiante}", publicacion)
 
     def leer(self, estudiante, cantidad=10):
         # TODO 2: lee la lista "feed:<estudiante>" (una sola lectura) y devuelve
         # las `cantidad` mas recientes, con mas_recientes.
-        raise NotImplementedError
+        publicaciones = self.almacen.leer(f"feed:{estudiante}")
+        return mas_recientes(publicaciones, cantidad)
 
 
 class FeedEnLectura:
@@ -60,13 +63,18 @@ class FeedEnLectura:
 
     def publicar(self, publicacion):
         # TODO 3: agrega la publicacion una sola vez, a la lista "autor:<autor>".
-        raise NotImplementedError
+        self.almacen.agregar(f"autor:{publicacion.autor}", publicacion)
 
     def leer(self, estudiante, cantidad=10):
         # TODO 4: lee la lista "autor:<autor>" de cada autor que sigue el
         # estudiante (una lectura por autor), juntalas y devuelve las
         # `cantidad` mas recientes.
-        raise NotImplementedError
+        publicaciones = []
+
+        for autor in self.seguidos.get(estudiante, []):
+            publicaciones += self.almacen.leer(f"autor:{autor}")
+
+        return mas_recientes(publicaciones, cantidad)
 
 
 def simular(feed):

@@ -1,3 +1,4 @@
+
 """Ejercicio 3: reconectarse sin perder avisos.
 
 Un telefono que pasa por un tunel pierde la conexion durante un minuto.
@@ -35,4 +36,53 @@ Esta vez no hay codigo de partida. Corre las pruebas con:
 """
 
 from canales_ejercicio1 import Canales
-# TODO: escribe aqui la clase CanalConHistorial.
+
+
+class CanalConHistorial(Canales):
+    def __init__(self, historial=50):
+        super().__init__()
+        self.historial = historial
+        self.numeros = {}
+        self.mensajes = {}
+
+    def publicar(self, tema, mensaje):
+        numero = self.numeros.get(tema, 0) + 1
+        self.numeros[tema] = numero
+
+        texto = f"{numero} {mensaje}"
+
+        if tema not in self.mensajes:
+            self.mensajes[tema] = []
+
+        self.mensajes[tema].append((numero, texto))
+
+        if len(self.mensajes[tema]) > self.historial:
+            self.mensajes[tema].pop(0)
+
+        for conexion in self.suscritos.get(tema, []):
+            conexion.enviar(texto)
+
+        return numero
+
+    def ultimo_numero(self, tema):
+        return self.numeros.get(tema, 0)
+
+    def reconectar(self, tema, conexion, ultimo_visto):
+        ultimo = self.ultimo_numero(tema)
+
+        if ultimo_visto > ultimo:
+            raise ValueError("numero desconocido")
+
+        pendientes = [
+            (numero, texto)
+            for numero, texto in self.mensajes.get(tema, [])
+            if numero > ultimo_visto
+        ]
+
+        if ultimo - ultimo_visto > len(pendientes):
+            conexion.enviar("recargar")
+        else:
+            for numero, texto in pendientes:
+                conexion.enviar(texto)
+
+        self.suscribir(tema, conexion)

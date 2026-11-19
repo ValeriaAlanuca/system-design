@@ -1,3 +1,4 @@
+
 """Ejercicio 3: el orden del feed y los espacios mas reservados.
 
 Mostrar el feed de lo mas nuevo a lo mas viejo es justo y es aburrido: un
@@ -38,4 +39,64 @@ Esta vez no hay codigo de partida. Corre las pruebas con:
 """
 
 from actividad import Publicacion
-# TODO: escribe aqui la clase OrdenadorDeFeed.
+
+
+class OrdenadorDeFeed:
+    def __init__(self, interacciones, equipos_de):
+        self.interacciones = interacciones
+        self.equipos_de = equipos_de
+
+    def puntaje(self, publicacion, estudiante, ahora):
+        interacciones = self.interacciones.get(publicacion.id, 0)
+
+        if publicacion.autor in self.equipos_de.get(estudiante, []):
+            multiplicador = 3
+        else:
+            multiplicador = 1
+
+        horas = (ahora - publicacion.momento) // 60
+
+        return (interacciones + 1) * multiplicador / (1 + horas)
+
+    def ordenar(self, publicaciones, estudiante, ahora, cantidad):
+        ordenadas = sorted(
+            publicaciones,
+            key=lambda p: (
+                -self.puntaje(p, estudiante, ahora),
+                -p.momento,
+                p.id
+            )
+        )
+
+        resultado = []
+
+        while ordenadas and len(resultado) < cantidad:
+            posicion = 0
+
+            if len(resultado) >= 2:
+                ultimo = resultado[-1].autor
+                penultimo = resultado[-2].autor
+
+                if ultimo == penultimo:
+                    for i, publicacion in enumerate(ordenadas):
+                        if publicacion.autor != ultimo:
+                            posicion = i
+                            break
+
+            resultado.append(ordenadas.pop(posicion))
+
+        return resultado
+
+    def espacios_mas_reservados(self, reservas, ahora, cantidad):
+        conteos = {}
+
+        for espacio, momento in reservas:
+            if ahora - 10080 < momento <= ahora:
+                conteos[espacio] = conteos.get(espacio, 0) + 1
+
+        ordenados = sorted(
+            conteos.items(),
+            key=lambda elemento: (-elemento[1], elemento[0])
+        )
+
+        return ordenados[:cantidad]
